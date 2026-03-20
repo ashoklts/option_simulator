@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Options Payoff Chart - Complete</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .main-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+        }
+
+        .chart-section {
+            flex: 1;
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        .stats-panel {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        .stat-card.profit {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border-left: 4px solid #10b981;
+        }
+
+        .stat-card.loss {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border-left: 4px solid #ef4444;
+        }
+
+        .stat-card.current {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-left: 4px solid #3b82f6;
+        }
+
+        .stat-card.breakeven {
+            background: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%);
+            border-left: 4px solid #a855f7;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            opacity: 0.8;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .sd-labels {
+            display: flex;
+            gap: 40px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .current-price {
+            padding: 6px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        .current-price strong {
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .zoom-btn {
+            padding: 6px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #374151;
+            transition: all 0.2s;
+        }
+
+        .zoom-btn:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 450px;
+            margin-bottom: 20px;
+        }
+
+        .spot-line {
+            position: absolute;
+            width: 2px;
+            background: #374151;
+            pointer-events: none;
+            z-index: 10;
+            top: 0;
+            bottom: 0;
+            box-shadow: 0 0 8px rgba(0,0,0,0.2);
+        }
+
+        .spot-line::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -3px;
+            width: 8px;
+            height: 8px;
+            background: #374151;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .spot-price-label {
+            position: absolute;
+            background: #374151;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 12;
+            transform: translateX(-50%);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+
+        .spot-price-label::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid #374151;
+        }
+
+        .floating-pnl {
+            position: absolute;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            pointer-events: none;
+            z-index: 11;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s ease;
+            border: 2px solid white;
+        }
+
+        .floating-pnl.loss {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .floating-pnl::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid #059669;
+        }
+
+        .floating-pnl.loss::before {
+            border-bottom-color: #dc2626;
+        }
+
+        .zoom-selection {
+            position: absolute;
+            border: 2px dashed #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            pointer-events: none;
+            z-index: 12;
+            display: none;
+        }
+
+        .zoom-reset-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 6px 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            z-index: 13;
+            display: none;
+        }
+
+        .zoom-reset-btn:hover {
+            background: #2563eb;
+        }
+
+        .projected-profit {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        .info-icon {
+            width: 16px;
+            height: 16px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        canvas {
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(0,0,0,0.01) 10px,
+                rgba(0,0,0,0.01) 20px
+            );
+        }
+
+        .legs-section {
+            max-width: 1600px;
+            margin: 20px auto 0;
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        .legs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .legs-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .add-leg-btn {
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .add-leg-btn:hover {
+            background: #2563eb;
+        }
+
+        .spot-price-slider {
+            background: #fef3c7;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #fbbf24;
+        }
+
+        .spot-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .slider-container {
+            position: relative;
+            height: 30px;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(to right, #fbbf24 0%, #f59e0b 100%);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #f59e0b;
+            cursor: pointer;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            background: #f59e0b;
+            cursor: pointer;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .legs-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .leg-row {
+            display: grid;
+            grid-template-columns: 150px 150px 200px 180px 120px 150px 50px;
+            gap: 15px;
+            align-items: center;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .leg-input, .leg-select {
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .leg-select {
+            cursor: pointer;
+        }
+
+        .delete-btn {
+            width: 40px;
+            height: 40px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+        }
+
+        .oi-info {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: -10px;
+            margin-bottom: 15px;
+        }
+
+        .oi-info span {
+            margin-right: 15px;
+        }
+
+        .oi-info .call-color {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .oi-info .put-color {
+            color: #ef4444;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Chart Section -->
+        <div class="chart-section">
+            <div class="header">
+                <div class="sd-labels">
+                    <span>-2SD</span>
+                    <span style="margin-left: 120px;">-1SD</span>
+                    <span style="margin-left: 240px;">1SD</span>
+                    <span style="margin-left: 120px;">2SD</span>
+                </div>
+                <div class="current-price">Current price: <strong id="currentPriceDisplay">25670.50</strong></div>
+                <button class="zoom-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                    Zoom Out
+                </button>
+            </div>
+
+            <div class="oi-info">
+                OI data at <strong>25650</strong> | 
+                <span class="put-color">Call OI 761.26L</span> | 
+                <span class="call-color">Put OI 607.50L</span> | 
+                <span style="color: #10b981;">— On Expiry</span> 
+                <span style="color: #3b82f6;">— On Target Date</span>
+            </div>
+
+            <div class="chart-wrapper">
+                <canvas id="payoffChart"></canvas>
+                <div class="spot-line" id="spotLine" style="display: none;"></div>
+                <div class="spot-price-label" id="spotPriceLabel" style="display: none;">₹25500</div>
+                <div class="floating-pnl" id="floatingPnL" style="display: none;">
+                    <span id="floatingPnLText">Projected: ₹0</span>
+                    <span class="info-icon">ⓘ</span>
+                </div>
+                <div class="zoom-selection" id="zoomSelection"></div>
+                <button class="zoom-reset-btn" id="zoomResetBtn">Reset Zoom</button>
+            </div>
+
+            <div style="text-align: center;">
+                <div class="projected-profit" id="projectedProfitDiv">
+                    <span id="projectedProfitText">Projected profit: +260 (+74.29%)</span>
+                    <span class="info-icon">ⓘ</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Panel -->
+        <div class="stats-panel">
+            <div class="stat-card profit">
+                <div class="stat-label">Max Profit</div>
+                <div class="stat-value" id="maxProfit">₹260.00</div>
+            </div>
+            <div class="stat-card loss">
+                <div class="stat-label">Max Loss</div>
+                <div class="stat-value" id="maxLoss">₹-40.00</div>
+            </div>
+            <div class="stat-card current">
+                <div class="stat-label">Current P&L</div>
+                <div class="stat-value" id="currentPnL">₹260.00</div>
+            </div>
+            <div class="stat-card breakeven">
+                <div class="stat-label">Breakeven Points</div>
+                <div class="stat-value" id="breakevenPoints">₹25241, ₹25769</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option Legs Section -->
+    <div class="legs-section">
+        <div class="legs-header">
+            <h2 class="legs-title">Option Legs</h2>
+            <button class="add-leg-btn" onclick="addLeg()">
+                <span>+</span> Add Leg
+            </button>
+        </div>
+
+        <!-- Spot Price Slider -->
+        <div class="spot-price-slider">
+            <div class="spot-label">Current Spot Price: ₹<span id="spotPriceValue">25670.50</span></div>
+            <div class="slider-container">
+                <input type="range" min="24000" max="27000" value="25670.5" step="10" class="slider" id="spotPriceSlider">
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 15px;">
+                <div>
+                    <label style="font-size: 12px; color: #92400e; display: block; margin-bottom: 5px;">Target Date (Blue Line)</label>
+                    <input type="date" id="targetDate" value="${new Date().toISOString().split('T')[0]}" 
+                           style="width: 100%; padding: 8px; border: 1px solid #fbbf24; border-radius: 4px; background: white;">
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: #92400e; display: block; margin-bottom: 5px;">
+                        Volatility (%) 
+                        <span style="font-weight: normal; opacity: 0.8;" title="Adjust this to match your option premiums">ⓘ</span>
+                    </label>
+                    <input type="number" id="volatility" value="15" min="5" max="100" step="1"
+                           style="width: 100%; padding: 8px; border: 1px solid #fbbf24; border-radius: 4px; background: white;">
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: #92400e; display: block; margin-bottom: 5px;">Risk-free Rate (%)</label>
+                    <input type="number" id="riskFreeRate" value="6" min="0" max="20" step="0.5"
+                           style="width: 100%; padding: 8px; border: 1px solid #fbbf24; border-radius: 4px; background: white;">
+                </div>
+            </div>
+            <div style="margin-top: 10px; font-size: 11px; color: #92400e; opacity: 0.8;">
+                Blue line shows P&L at Target Date. Time remaining calculated from entry date of each leg.
+            </div>
+        </div>
+
+        <!-- Legs List -->
+        <div class="legs-list" id="legsList">
+            <!-- Initial legs will be added here -->
+        </div>
+    </div>
+
+    <script>
+        // Configuration variables
+        let currentSpotPrice = 25670.5;
+        const pnlStep = 5;  // Reduced from 10 to 5 for denser plotting and wider-looking bars
+        const oiStep = 50;   // Open Interest at every 50 points (strike intervals)
+        
+        // Option legs storage
+        let optionLegs = [
+            { type: 'Sell', optionType: 'Call', strike: 25900, premium: 183.8, quantity: 1, entryDate: new Date().toISOString().split('T')[0] },
+            { type: 'Sell', optionType: 'Put', strike: 25400, premium: 130, quantity: 1, entryDate: new Date().toISOString().split('T')[0] }
+        ];
+        
+        let chart = null;
+        let pnlPriceRange = [];
+        let callOI = [];
+        let putOI = [];
+        
+        // Zoom state
+        let isZoomed = false;
+        let zoomStartPrice = 24800;
+        let zoomEndPrice = 26500;
+        let isDragging = false;
+        let dragStartX = 0;
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            renderLegs();
+            updateChart();
+            
+            // Spot price slider listener
+            document.getElementById('spotPriceSlider').addEventListener('input', function(e) {
+                currentSpotPrice = parseFloat(e.target.value);
+                document.getElementById('spotPriceValue').textContent = currentSpotPrice.toFixed(2);
+                document.getElementById('currentPriceDisplay').textContent = currentSpotPrice.toFixed(2);
+                updateChart();
+            });
+            
+            // Update slider range based on zoom (but don't change the value)
+            function updateSliderRange() {
+                const slider = document.getElementById('spotPriceSlider');
+                if (isZoomed) {
+                    // Expand slider range slightly beyond zoom range
+                    const buffer = (zoomEndPrice - zoomStartPrice) * 0.1;
+                    slider.min = Math.floor(zoomStartPrice - buffer);
+                    slider.max = Math.ceil(zoomEndPrice + buffer);
+                    slider.step = 5;
+                } else {
+                    slider.min = 24000;
+                    slider.max = 27000;
+                    slider.step = 10;
+                }
+                // Keep the current value unchanged
+                slider.value = currentSpotPrice;
+            }
+            
+            // Black-Scholes parameter listeners
+            document.getElementById('targetDate').addEventListener('change', function() {
+                updateChart();
+            });
+            
+            document.getElementById('volatility').addEventListener('change', function() {
+                updateChart();
+            });
+            
+            document.getElementById('riskFreeRate').addEventListener('change', function() {
+                updateChart();
+            });
+            
+            // Zoom reset button
+            document.getElementById('zoomResetBtn').addEventListener('click', function() {
+                isZoomed = false;
+                zoomStartPrice = 24800;
+                zoomEndPrice = 26500;
+                this.style.display = 'none';
+                updateChart();
+                updateSliderRange();
+            });
+            
+            // Setup zoom drag functionality
+            setupZoomDrag();
+        });
+        
+        // Setup zoom drag on canvas
+        function setupZoomDrag() {
+            const canvas = document.getElementById('payoffChart');
+            const zoomSelection = document.getElementById('zoomSelection');
+            const chartWrapper = document.querySelector('.chart-wrapper');
+            
+            let startX = 0;
+            let startPrice = 0;
+            let startIndex = 0;
+            
+            canvas.addEventListener('mousedown', function(e) {
+                if (!chart || !chart.chartArea) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const chartArea = chart.chartArea;
+                
+                // Check if click is within chart area
+                if (x >= chartArea.left && x <= chartArea.right) {
+                    isDragging = true;
+                    startX = x;
+                    dragStartX = x;
+                    
+                    // Convert x position to price using the data array
+                    const xScale = chart.scales.x;
+                    const dataIndex = Math.round((x - chartArea.left) / (chartArea.right - chartArea.left) * (pnlPriceRange.length - 1));
+                    startIndex = Math.max(0, Math.min(dataIndex, pnlPriceRange.length - 1));
+                    startPrice = pnlPriceRange[startIndex];
+                    
+                    zoomSelection.style.display = 'block';
+                    zoomSelection.style.left = x + 'px';
+                    zoomSelection.style.top = chartArea.top + 'px';
+                    zoomSelection.style.width = '0px';
+                    zoomSelection.style.height = (chartArea.bottom - chartArea.top) + 'px';
+                }
+            });
+            
+            canvas.addEventListener('mousemove', function(e) {
+                if (!isDragging || !chart || !chart.chartArea) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const chartArea = chart.chartArea;
+                
+                // Clamp x to chart area
+                const clampedX = Math.max(chartArea.left, Math.min(x, chartArea.right));
+                
+                // Update selection box
+                const left = Math.min(startX, clampedX);
+                const width = Math.abs(clampedX - startX);
+                
+                zoomSelection.style.left = left + 'px';
+                zoomSelection.style.width = width + 'px';
+            });
+            
+            canvas.addEventListener('mouseup', function(e) {
+                if (!isDragging || !chart || !chart.chartArea) return;
+                
+                isDragging = false;
+                zoomSelection.style.display = 'none';
+                
+                const rect = canvas.getBoundingClientRect();
+                const endX = e.clientX - rect.left;
+                const chartArea = chart.chartArea;
+                
+                // Minimum drag distance (10px)
+                if (Math.abs(endX - startX) < 10) return;
+                
+                // Convert end position to price
+                const clampedEndX = Math.max(chartArea.left, Math.min(endX, chartArea.right));
+                const endDataIndex = Math.round((clampedEndX - chartArea.left) / (chartArea.right - chartArea.left) * (pnlPriceRange.length - 1));
+                const endIndex = Math.max(0, Math.min(endDataIndex, pnlPriceRange.length - 1));
+                const endPrice = pnlPriceRange[endIndex];
+                
+                // Set zoom range (ensure start < end)
+                const minPrice = Math.min(startPrice, endPrice);
+                const maxPrice = Math.max(startPrice, endPrice);
+                
+                // Round to nearest 50
+                zoomStartPrice = Math.floor(minPrice / 50) * 50;
+                zoomEndPrice = Math.ceil(maxPrice / 50) * 50;
+                
+                // Ensure minimum range of 200 points
+                if (zoomEndPrice - zoomStartPrice < 200) {
+                    const center = (zoomStartPrice + zoomEndPrice) / 2;
+                    zoomStartPrice = Math.floor((center - 100) / 50) * 50;
+                    zoomEndPrice = Math.ceil((center + 100) / 50) * 50;
+                }
+                
+                console.log('Zooming to range:', zoomStartPrice, '-', zoomEndPrice);
+                console.log('Spot price before zoom:', currentSpotPrice);
+                
+                isZoomed = true;
+                document.getElementById('zoomResetBtn').style.display = 'block';
+                
+                updateChart();
+                updateSliderRange();
+                
+                console.log('Spot price after zoom:', currentSpotPrice);
+            });
+            
+            canvas.addEventListener('mouseleave', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    zoomSelection.style.display = 'none';
+                }
+            });
+        }
+        
+        // Add new leg
+        function addLeg() {
+            optionLegs.push({
+                type: 'Buy',
+                optionType: 'Call',
+                strike: Math.round(currentSpotPrice / 50) * 50,
+                premium: 100,
+                quantity: 1,
+                entryDate: new Date().toISOString().split('T')[0]
+            });
+            renderLegs();
+            updateChart();
+        }
+        
+        // Remove leg
+        function removeLeg(index) {
+            optionLegs.splice(index, 1);
+            renderLegs();
+            updateChart();
+        }
+        
+        // Update leg
+        function updateLeg(index, field, value) {
+            if (field === 'type' || field === 'optionType' || field === 'entryDate') {
+                optionLegs[index][field] = value;
+            } else {
+                optionLegs[index][field] = parseFloat(value);
+            }
+            updateChart();
+        }
+        
+        // Render legs HTML
+        function renderLegs() {
+            const legsList = document.getElementById('legsList');
+            legsList.innerHTML = optionLegs.map((leg, index) => `
+                <div class="leg-row">
+                    <select class="leg-select" onchange="updateLeg(${index}, 'type', this.value)">
+                        <option value="Buy" ${leg.type === 'Buy' ? 'selected' : ''}>Buy</option>
+                        <option value="Sell" ${leg.type === 'Sell' ? 'selected' : ''}>Sell</option>
+                    </select>
+                    <select class="leg-select" onchange="updateLeg(${index}, 'optionType', this.value)">
+                        <option value="Call" ${leg.optionType === 'Call' ? 'selected' : ''}>Call</option>
+                        <option value="Put" ${leg.optionType === 'Put' ? 'selected' : ''}>Put</option>
+                    </select>
+                    <input type="number" class="leg-input" value="${leg.strike}" step="50"
+                           onchange="updateLeg(${index}, 'strike', this.value)" 
+                           placeholder="Strike Price">
+                    <input type="number" class="leg-input" value="${leg.premium}" step="10"
+                           onchange="updateLeg(${index}, 'premium', this.value)" 
+                           placeholder="Premium">
+                    <input type="number" class="leg-input" value="${leg.quantity}" step="1"
+                           onchange="updateLeg(${index}, 'quantity', this.value)" 
+                           placeholder="Quantity">
+                    <input type="date" class="leg-input" value="${leg.entryDate || new Date().toISOString().split('T')[0]}"
+                           onchange="updateLeg(${index}, 'entryDate', this.value)" 
+                           title="Entry Date">
+                    <button class="delete-btn" onclick="removeLeg(${index})">🗑</button>
+                </div>
+            `).join('');
+        }
+        
+        // Calculate P&L for a given spot price at expiry
+        function calculatePnL(spotPrice) {
+            let totalPnL = 0;
+            
+            optionLegs.forEach(leg => {
+                const { type, optionType, strike, premium, quantity } = leg;
+                let legPnL = 0;
+                
+                if (optionType === 'Call') {
+                    // Call option payoff
+                    const intrinsicValue = Math.max(0, spotPrice - strike);
+                    if (type === 'Buy') {
+                        legPnL = (intrinsicValue - premium) * quantity;
+                    } else { // Sell
+                        legPnL = (premium - intrinsicValue) * quantity;
+                    }
+                } else { // Put
+                    // Put option payoff
+                    const intrinsicValue = Math.max(0, strike - spotPrice);
+                    if (type === 'Buy') {
+                        legPnL = (intrinsicValue - premium) * quantity;
+                    } else { // Sell
+                        legPnL = (premium - intrinsicValue) * quantity;
+                    }
+                }
+                
+                totalPnL += legPnL;
+            });
+            
+            return totalPnL;
+        }
+        
+        // Black-Scholes option pricing functions
+        function normalCDF(x) {
+            // Approximation of cumulative distribution function for standard normal distribution
+            const t = 1 / (1 + 0.2316419 * Math.abs(x));
+            const d = 0.3989423 * Math.exp(-x * x / 2);
+            const prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+            return x > 0 ? 1 - prob : prob;
+        }
+        
+        function blackScholesCall(S, K, T, r, sigma) {
+            // S = Current stock price
+            // K = Strike price
+            // T = Time to expiration (in years)
+            // r = Risk-free rate
+            // sigma = Volatility
+            
+            if (T <= 0.001) {
+                // At or very near expiration
+                return Math.max(0, S - K);
+            }
+            
+            const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+            const d2 = d1 - sigma * Math.sqrt(T);
+            
+            const callPrice = S * normalCDF(d1) - K * Math.exp(-r * T) * normalCDF(d2);
+            return callPrice;
+        }
+        
+        function blackScholesPut(S, K, T, r, sigma) {
+            // S = Current stock price
+            // K = Strike price
+            // T = Time to expiration (in years)
+            // r = Risk-free rate
+            // sigma = Volatility
+            
+            if (T <= 0.001) {
+                // At or very near expiration
+                return Math.max(0, K - S);
+            }
+            
+            const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+            const d2 = d1 - sigma * Math.sqrt(T);
+            
+            const putPrice = K * Math.exp(-r * T) * normalCDF(-d2) - S * normalCDF(-d1);
+            return putPrice;
+        }
+        
+        // Calculate current day P&L using Black-Scholes (Target Date line)
+        function calculateCurrentDayPnL(spotPrice) {
+            // Get market parameters from inputs
+            const targetDateStr = document.getElementById('targetDate')?.value;
+            const targetDate = targetDateStr ? new Date(targetDateStr) : new Date();
+            
+            const r = parseFloat(document.getElementById('riskFreeRate')?.value || 6) / 100; // Risk-free rate
+            const sigma = parseFloat(document.getElementById('volatility')?.value || 15) / 100; // Implied volatility
+            
+            let totalPnL = 0;
+            
+            optionLegs.forEach(leg => {
+                const { type, optionType, strike, premium, quantity, entryDate } = leg;
+                
+                // Calculate time remaining from entry date to target date
+                const entry = entryDate ? new Date(entryDate) : new Date();
+                const daysRemaining = Math.max(0, Math.ceil((targetDate - entry) / (1000 * 60 * 60 * 24)));
+                const T = Math.max(0.001, daysRemaining / 365); // Time in years, minimum 0.001
+                
+                let optionValue = 0;
+                
+                if (optionType === 'Call') {
+                    optionValue = blackScholesCall(spotPrice, strike, T, r, sigma);
+                } else { // Put
+                    optionValue = blackScholesPut(spotPrice, strike, T, r, sigma);
+                }
+                
+                // Calculate P&L based on buy/sell
+                let legPnL = 0;
+                if (type === 'Buy') {
+                    // Bought option: current value - premium paid
+                    legPnL = (optionValue - premium) * quantity;
+                } else { // Sell
+                    // Sold option: premium received - current value
+                    legPnL = (premium - optionValue) * quantity;
+                }
+                
+                totalPnL += legPnL;
+            });
+            
+            return totalPnL;
+        }
+        
+        // Calculate statistics
+        function calculateStatistics(pnlPriceRange, expiryPayoff) {
+            const maxProfit = Math.max(...expiryPayoff);
+            const maxLoss = Math.min(...expiryPayoff);
+            const currentPnL = calculatePnL(currentSpotPrice);
+            
+            // Find breakeven points (where P&L crosses zero)
+            const breakevenPoints = [];
+            for (let i = 1; i < expiryPayoff.length; i++) {
+                const prev = expiryPayoff[i-1];
+                const curr = expiryPayoff[i];
+                
+                if ((prev < 0 && curr >= 0) || (prev >= 0 && curr < 0)) {
+                    // Linear interpolation for more accurate breakeven
+                    const prevPrice = pnlPriceRange[i-1];
+                    const currPrice = pnlPriceRange[i];
+                    const breakeven = prevPrice + (currPrice - prevPrice) * (0 - prev) / (curr - prev);
+                    breakevenPoints.push(Math.round(breakeven));
+                }
+            }
+            
+            return { maxProfit, maxLoss, currentPnL, breakevenPoints };
+        }
+        
+        // Update spot line and floating P&L indicator
+        function updateSpotLinePosition() {
+            if (!chart || !chart.chartArea) {
+                console.log('Chart or chartArea not ready');
+                return;
+            }
+            
+            const spotLine = document.getElementById('spotLine');
+            const floatingPnL = document.getElementById('floatingPnL');
+            
+            console.log('Updating spot line for price:', currentSpotPrice);
+            console.log('Price range:', pnlPriceRange[0], 'to', pnlPriceRange[pnlPriceRange.length - 1]);
+            
+            // Check if current spot price is within the visible range
+            if (currentSpotPrice < pnlPriceRange[0] || currentSpotPrice > pnlPriceRange[pnlPriceRange.length - 1]) {
+                console.log('Spot price outside visible range - hiding line');
+                spotLine.style.display = 'none';
+                floatingPnL.style.display = 'none';
+                document.getElementById('spotPriceLabel').style.display = 'none';
+                return;
+            }
+            
+            // Find the exact index or interpolate
+            let priceIndex = -1;
+            
+            // First, try to find exact match
+            for (let i = 0; i < pnlPriceRange.length; i++) {
+                if (pnlPriceRange[i] === currentSpotPrice) {
+                    priceIndex = i;
+                    break;
+                }
+            }
+            
+            // If no exact match, find the closest
+            if (priceIndex === -1) {
+                let minDiff = Infinity;
+                for (let i = 0; i < pnlPriceRange.length; i++) {
+                    const diff = Math.abs(pnlPriceRange[i] - currentSpotPrice);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        priceIndex = i;
+                    }
+                }
+            }
+            
+            console.log('Found price index:', priceIndex, 'at price:', pnlPriceRange[priceIndex]);
+            
+            if (priceIndex === -1 || priceIndex >= pnlPriceRange.length) {
+                console.log('Invalid price index - hiding line');
+                spotLine.style.display = 'none';
+                floatingPnL.style.display = 'none';
+                document.getElementById('spotPriceLabel').style.display = 'none';
+                return;
+            }
+            
+            // Use the chart area to calculate position
+            const chartArea = chart.chartArea;
+            const chartWidth = chartArea.right - chartArea.left;
+            const numPoints = pnlPriceRange.length;
+            
+            // Calculate x position proportionally
+            const xOffset = (priceIndex / (numPoints - 1)) * chartWidth;
+            const xPos = chartArea.left + xOffset;
+            
+            console.log('Chart area left:', chartArea.left, 'width:', chartWidth);
+            console.log('Price index:', priceIndex, 'of', numPoints, 'points');
+            console.log('Calculated x offset:', xOffset, 'Final xPos:', xPos);
+            
+            // Get spot price label element
+            const spotPriceLabel = document.getElementById('spotPriceLabel');
+            
+            // Position the vertical line
+            spotLine.style.display = 'block';
+            spotLine.style.left = xPos + 'px';
+            spotLine.style.top = chartArea.top + 'px';
+            spotLine.style.height = (chartArea.bottom - chartArea.top) + 'px';
+            
+            // Position and update the spot price label at the top
+            spotPriceLabel.style.display = 'block';
+            spotPriceLabel.style.left = xPos + 'px';
+            spotPriceLabel.style.top = (chartArea.top - 30) + 'px';
+            spotPriceLabel.textContent = '₹' + currentSpotPrice.toFixed(2);
+            
+            // Calculate P&L at current spot price
+            const currentPnL = calculateCurrentDayPnL(currentSpotPrice);
+            
+            // Position and update the floating P&L at the BOTTOM
+            floatingPnL.style.display = 'flex';
+            floatingPnL.style.left = (xPos - floatingPnL.offsetWidth / 2) + 'px';
+            floatingPnL.style.top = (chartArea.bottom + 50) + 'px';  // Increased from 15 to 50 to avoid X-axis labels
+            
+            // Update text and color
+            const isProfit = currentPnL >= 0;
+            floatingPnL.className = 'floating-pnl' + (isProfit ? '' : ' loss');
+            
+            const netPremium = optionLegs.reduce((sum, leg) => {
+                const sign = leg.type === 'Sell' ? 1 : -1;
+                return sum + (sign * leg.premium * leg.quantity);
+            }, 0);
+            
+            const profitPercent = netPremium !== 0 ? ((currentPnL / Math.abs(netPremium)) * 100).toFixed(2) : '0.00';
+            const prefix = currentPnL >= 0 ? '+' : '';
+            
+            document.getElementById('floatingPnLText').textContent = 
+                `${prefix}₹${currentPnL.toFixed(2)} (${prefix}${profitPercent}%)`;
+        }
+        function updateStatistics(stats) {
+            document.getElementById('maxProfit').textContent = '₹' + stats.maxProfit.toFixed(2);
+            document.getElementById('maxLoss').textContent = '₹' + stats.maxLoss.toFixed(2);
+            document.getElementById('currentPnL').textContent = '₹' + stats.currentPnL.toFixed(2);
+            
+            if (stats.breakevenPoints.length > 0) {
+                document.getElementById('breakevenPoints').textContent = 
+                    stats.breakevenPoints.map(bp => '₹' + bp).join(', ');
+            } else {
+                document.getElementById('breakevenPoints').textContent = 'No breakeven';
+            }
+            
+            // Update projected profit
+            const netPremium = optionLegs.reduce((sum, leg) => {
+                const sign = leg.type === 'Sell' ? 1 : -1;
+                return sum + (sign * leg.premium * leg.quantity);
+            }, 0);
+            
+            const profitPercent = netPremium !== 0 ? ((stats.currentPnL / Math.abs(netPremium)) * 100).toFixed(2) : '0.00';
+            const projectedText = stats.currentPnL >= 0 
+                ? `Projected profit: +${stats.currentPnL.toFixed(0)} (+${profitPercent}%)`
+                : `Projected loss: ${stats.currentPnL.toFixed(0)} (${profitPercent}%)`;
+            
+            document.getElementById('projectedProfitText').textContent = projectedText;
+            
+            const projectedDiv = document.getElementById('projectedProfitDiv');
+            if (stats.currentPnL >= 0) {
+                projectedDiv.style.background = '#10b981';
+            } else {
+                projectedDiv.style.background = '#ef4444';
+            }
+        }
+        
+        // Generate Open Interest data with offset positioning
+        function generateOIData(priceRange, isCall) {
+            return priceRange.map(price => {
+                // Only show OI at specific intervals based on type
+                // For Call OI: show at strike+10 (e.g., 25510, 25560, 25610 for strikes 25500, 25550, 25600)
+                // For Put OI: show at strike-10 (e.g., 25490, 25540, 25590 for strikes 25500, 25550, 25600)
+                
+                let strikePrice;
+                if (isCall) {
+                    // Check if this price is strike+10
+                    strikePrice = price - 10;
+                    if (strikePrice % oiStep !== 0) return 0;
+                } else {
+                    // Check if this price is strike-10
+                    strikePrice = price + 10;
+                    if (strikePrice % oiStep !== 0) return 0;
+                }
+                
+                const distance = isCall ? (strikePrice - currentSpotPrice) : (currentSpotPrice - strikePrice);
+                let value;
+                
+                if (Math.abs(distance) > 500) {
+                    value = Math.random() * 8000 + 12000;
+                } else if (Math.abs(distance) > 200) {
+                    value = Math.random() * 6000 + 8000;
+                } else if (Math.abs(distance) > -200) {
+                    value = Math.random() * 4000 + 3000;
+                } else {
+                    value = Math.random() * 2000 + 1000;
+                }
+                
+                // Add spikes at specific strikes
+                if (isCall) {
+                    if (strikePrice === 26000) value = 24000;
+                    if (strikePrice === 25950) value = 18000;
+                    if (strikePrice === 26050) value = 20000;
+                } else {
+                    if (strikePrice === 25500) value = 18000;
+                    if (strikePrice === 25450) value = 15000;
+                    if (strikePrice === 25400) value = 12000;
+                }
+                
+                return value;
+            });
+        }
+        
+        // Update chart with new calculations
+        function updateChart() {
+            // Generate price range for P&L based on zoom state
+            pnlPriceRange = [];
+            const startPrice = isZoomed ? zoomStartPrice : 24800;
+            const endPrice = isZoomed ? zoomEndPrice : 26500;
+            
+            for (let price = startPrice; price <= endPrice; price += pnlStep) {
+                pnlPriceRange.push(price);
+            }
+            
+            // Calculate payoffs
+            const expiryPayoff = pnlPriceRange.map(price => calculatePnL(price));
+            const currentDayPayoff = pnlPriceRange.map(price => calculateCurrentDayPnL(price));
+            
+            // Calculate Y-axis range for P&L
+            const maxPnL = Math.max(...expiryPayoff, ...currentDayPayoff);
+            const minPnL = Math.min(...expiryPayoff, ...currentDayPayoff);
+            const pnlRange = Math.max(Math.abs(maxPnL), Math.abs(minPnL));
+            const pnlAxisMax = Math.ceil(pnlRange * 1.2 / 1000) * 1000; // Round up to nearest 1000
+            const pnlAxisMin = -pnlAxisMax; // Symmetric
+            
+            // Generate OI data
+            callOI = generateOIData(pnlPriceRange, true);
+            putOI = generateOIData(pnlPriceRange, false);
+            
+            // Calculate OI range (symmetric)
+            const maxOI = Math.max(...callOI, ...putOI);
+            const oiAxisMax = Math.ceil(maxOI * 1.2 / 5000) * 5000; // Round up to nearest 5000
+            const oiAxisMin = -oiAxisMax; // Symmetric
+            
+            // Calculate and update statistics
+            const stats = calculateStatistics(pnlPriceRange, expiryPayoff);
+            updateStatistics(stats);
+            
+            // Create/update chart
+            const ctx = document.getElementById('payoffChart').getContext('2d');
+            
+            if (chart) {
+                chart.data.labels = pnlPriceRange;
+                chart.data.datasets[0].data = putOI;
+                chart.data.datasets[1].data = callOI;
+                chart.data.datasets[2].data = expiryPayoff;
+                chart.data.datasets[3].data = currentDayPayoff;
+                chart.options.scales.yPnL.min = pnlAxisMin;
+                chart.options.scales.yPnL.max = pnlAxisMax;
+                chart.options.scales.yOI.min = oiAxisMin;
+                chart.options.scales.yOI.max = oiAxisMax;
+                chart.update();
+                
+                // Update spot line position after chart renders with longer delay for zoom
+                setTimeout(() => updateSpotLinePosition(), 200);
+            } else {
+                chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: pnlPriceRange,
+                        datasets: [
+                            {
+                                type: 'bar',
+                                label: 'Put OI',
+                                data: putOI,
+                                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                                borderColor: 'rgba(16, 185, 129, 1)',
+                                borderWidth: 0,
+                                yAxisID: 'yOI',
+                                order: 4,
+                                barPercentage: 6.0,
+                                categoryPercentage: 1.0,
+                                xAxisID: 'x'
+                            },
+                            {
+                                type: 'bar',
+                                label: 'Call OI',
+                                data: callOI,
+                                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                                borderColor: 'rgba(239, 68, 68, 1)',
+                                borderWidth: 0,
+                                yAxisID: 'yOI',
+                                order: 3,
+                                barPercentage: 6.0,
+                                categoryPercentage: 1.0,
+                                xAxisID: 'x'
+                            },
+                            {
+                                type: 'line',
+                                label: 'Expiry Payoff',
+                                data: expiryPayoff,
+                                borderColor: 'rgba(16, 185, 129, 1)',
+                                borderWidth: 2.5,
+                                pointRadius: 0,
+                                pointHoverRadius: 5,
+                                fill: {
+                                    target: 'origin',
+                                    above: 'rgba(16, 185, 129, 0.15)',
+                                    below: 'rgba(239, 68, 68, 0.15)'
+                                },
+                                segment: {
+                                    borderColor: function(ctx) {
+                                        const y0 = ctx.p0.parsed.y;
+                                        const y1 = ctx.p1.parsed.y;
+                                        if (y0 >= 0 && y1 >= 0) return 'rgba(16, 185, 129, 1)';
+                                        else if (y0 < 0 && y1 < 0) return 'rgba(239, 68, 68, 1)';
+                                        else return (y0 + y1) / 2 >= 0 ? 'rgba(16, 185, 129, 1)' : 'rgba(239, 68, 68, 1)';
+                                    }
+                                },
+                                tension: 0.1,
+                                yAxisID: 'yPnL',
+                                order: 1
+                            },
+                            {
+                                type: 'line',
+                                label: 'Current Day Payoff',
+                                data: currentDayPayoff,
+                                borderColor: 'rgba(59, 130, 246, 1)',
+                                borderWidth: 2.5,
+                                pointRadius: 0,
+                                pointHoverRadius: 5,
+                                fill: {
+                                    target: 'origin',
+                                    above: 'rgba(59, 130, 246, 0.15)',
+                                    below: 'rgba(239, 68, 68, 0.15)'
+                                },
+                                segment: {
+                                    borderColor: function(ctx) {
+                                        const y0 = ctx.p0.parsed.y;
+                                        const y1 = ctx.p1.parsed.y;
+                                        if (y0 >= 0 && y1 >= 0) return 'rgba(59, 130, 246, 1)';
+                                        else if (y0 < 0 && y1 < 0) return 'rgba(239, 68, 68, 1)';
+                                        else return (y0 + y1) / 2 >= 0 ? 'rgba(59, 130, 246, 1)' : 'rgba(239, 68, 68, 1)';
+                                    }
+                                },
+                                tension: 0.1,
+                                yAxisID: 'yPnL',
+                                order: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: true,
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12,
+                                displayColors: true,
+                                callbacks: {
+                                    title: function(context) {
+                                        const price = parseFloat(context[0].label);
+                                        // Find the nearest strike (round to nearest 50)
+                                        const strike = Math.round(price / oiStep) * oiStep;
+                                        return 'Price: ' + price + ' | Strike: ' + strike;
+                                    },
+                                    label: function(context) {
+                                        const datasetIndex = context.datasetIndex;
+                                        const price = parseFloat(context.label);
+                                        
+                                        // Find the nearest strike
+                                        const strike = Math.round(price / oiStep) * oiStep;
+                                        
+                                        // For OI datasets (index 0 and 1)
+                                        if (datasetIndex === 0 || datasetIndex === 1) {
+                                            // Find the Call OI value at strike+10
+                                            const callOIIndex = pnlPriceRange.indexOf(strike + 10);
+                                            const callOIValue = callOIIndex !== -1 ? callOI[callOIIndex] : 0;
+                                            
+                                            // Find the Put OI value at strike-10
+                                            const putOIIndex = pnlPriceRange.indexOf(strike - 10);
+                                            const putOIValue = putOIIndex !== -1 ? putOI[putOIIndex] : 0;
+                                            
+                                            if (datasetIndex === 0) {
+                                                // Put OI dataset
+                                                return 'Put OI: ' + Math.round(putOIValue).toLocaleString();
+                                            } else {
+                                                // Call OI dataset
+                                                return 'Call OI: ' + Math.round(callOIValue).toLocaleString();
+                                            }
+                                        } else {
+                                            // P&L datasets
+                                            let label = context.dataset.label || '';
+                                            if (label) label += ': ';
+                                            if (context.parsed.y !== null) {
+                                                label += '₹' + context.parsed.y.toFixed(2);
+                                            }
+                                            return label;
+                                        }
+                                    },
+                                    afterBody: function(context) {
+                                        const price = parseFloat(context[0].label);
+                                        const strike = Math.round(price / oiStep) * oiStep;
+                                        
+                                        // Show both OI values together
+                                        const callOIIndex = pnlPriceRange.indexOf(strike + 10);
+                                        const callOIValue = callOIIndex !== -1 ? callOI[callOIIndex] : 0;
+                                        
+                                        const putOIIndex = pnlPriceRange.indexOf(strike - 10);
+                                        const putOIValue = putOIIndex !== -1 ? putOI[putOIIndex] : 0;
+                                        
+                                        // Return empty if we're showing P&L only
+                                        if (callOIValue === 0 && putOIValue === 0) {
+                                            return '';
+                                        }
+                                        
+                                        return '';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                offset: true,
+                                grid: {
+                                    display: true,
+                                    color: 'rgba(0, 0, 0, 0.05)',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    callback: function(value, index) {
+                                        const price = this.getLabelForValue(value);
+                                        if (price % 100 === 0) return price;
+                                        return '';
+                                    },
+                                    color: '#6b7280',
+                                    font: { size: 11 }
+                                },
+                                border: { display: false }
+                            },
+                            yPnL: {
+                                type: 'linear',
+                                position: 'left',
+                                min: pnlAxisMin,
+                                max: pnlAxisMax,
+                                title: {
+                                    display: true,
+                                    text: 'Profit / Loss',
+                                    color: '#6b7280',
+                                    font: { size: 12, weight: '500' }
+                                },
+                                grid: {
+                                    display: true,
+                                    color: function(context) {
+                                        return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)';
+                                    },
+                                    lineWidth: function(context) {
+                                        return context.tick.value === 0 ? 2 : 1;
+                                    },
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toLocaleString();
+                                    },
+                                    color: '#6b7280',
+                                    font: { size: 11 }
+                                },
+                                border: { display: false }
+                            },
+                            yOI: {
+                                type: 'linear',
+                                position: 'right',
+                                min: oiAxisMin,
+                                max: oiAxisMax,
+                                title: {
+                                    display: true,
+                                    text: 'Open Interest',
+                                    color: '#6b7280',
+                                    font: { size: 12, weight: '500' }
+                                },
+                                grid: { display: false },
+                                ticks: {
+                                    callback: function(value) {
+                                        const absValue = Math.abs(value);
+                                        if (absValue === 0) return '0';
+                                        if (absValue >= 10000) return (absValue / 10000).toFixed(0) + 'Cr';
+                                        return absValue.toLocaleString();
+                                    },
+                                    color: '#6b7280',
+                                    font: { size: 11 }
+                                },
+                                border: { display: false },
+                                stacked: false
+                            }
+                        }
+                    }
+                });
+                
+                // Update spot line position after initial chart creation
+                setTimeout(() => updateSpotLinePosition(), 200);
+            }
+        }
+    </script>
+</body>
+</html>
