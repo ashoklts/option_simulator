@@ -12771,6 +12771,8 @@
                         optionLegs[idx].exited = true;
                         renderPositionTable();
                         updateSummaryStats();
+                        if (typeof updateChart === 'function') updateChart();
+                        if (typeof window.reloadOptionChain === 'function') window.reloadOptionChain();
                     });
                 }
 
@@ -12783,6 +12785,8 @@
                         optionLegs[idx].exitDelta = null;
                         renderPositionTable();
                         updateSummaryStats();
+                        if (typeof updateChart === 'function') updateChart();
+                        if (typeof window.reloadOptionChain === 'function') window.reloadOptionChain();
                     });
                 }
             });
@@ -12793,32 +12797,34 @@
         // Calculate P&L for a given spot price at expiry
         function calculatePnL(spotPrice) {
             let totalPnL = 0;
-            
+
             optionLegs.forEach(leg => {
+                // Exited leg: frozen PnL — constant regardless of spotPrice
+                if (leg.exited) {
+                    totalPnL += leg.type === 'Buy'
+                        ? (leg.exitPrice - leg.premium) * leg.quantity
+                        : (leg.premium - leg.exitPrice) * leg.quantity;
+                    return;
+                }
+
                 const { type, optionType, strike, premium, quantity } = leg;
                 let legPnL = 0;
-                
+
                 if (optionType === 'Call') {
-                    // Call option payoff
                     const intrinsicValue = Math.max(0, spotPrice - strike);
-                    if (type === 'Buy') {
-                        legPnL = (intrinsicValue - premium) * quantity;
-                    } else { // Sell
-                        legPnL = (premium - intrinsicValue) * quantity;
-                    }
-                } else { // Put
-                    // Put option payoff
+                    legPnL = type === 'Buy'
+                        ? (intrinsicValue - premium) * quantity
+                        : (premium - intrinsicValue) * quantity;
+                } else {
                     const intrinsicValue = Math.max(0, strike - spotPrice);
-                    if (type === 'Buy') {
-                        legPnL = (intrinsicValue - premium) * quantity;
-                    } else { // Sell
-                        legPnL = (premium - intrinsicValue) * quantity;
-                    }
+                    legPnL = type === 'Buy'
+                        ? (intrinsicValue - premium) * quantity
+                        : (premium - intrinsicValue) * quantity;
                 }
-                
+
                 totalPnL += legPnL;
             });
-            
+
             return totalPnL;
         }
         
@@ -12882,6 +12888,14 @@
             let totalPnL = 0;
 
             optionLegs.forEach(leg => {
+                // Exited leg: frozen PnL — constant regardless of spotPrice
+                if (leg.exited) {
+                    totalPnL += leg.type === 'Buy'
+                        ? (leg.exitPrice - leg.premium) * leg.quantity
+                        : (leg.premium - leg.exitPrice) * leg.quantity;
+                    return;
+                }
+
                 const { type, optionType, strike, premium, quantity, expiry } = leg;
 
                 // Per-leg IV: ATM IV from option chain data for this expiry + user shift
@@ -14136,7 +14150,8 @@
                     return leg.expiry === expiry &&
                            leg.strike === strike &&
                            leg.optionType === optionType &&
-                           leg.type === type;
+                           leg.type === type &&
+                           !leg.exited;
                 });
             }
 
